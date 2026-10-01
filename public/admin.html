@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Nomber OTP Admin</title>
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);--bg:#f6f7fb;--card:#fff;--tx:#14162b;--mu:#6b6f86;--br:#e3e5ef;--ac:#4f46e5;--ok:#16a34a;--er:#dc2626}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1020;--card:#171a30;--tx:#eceefb;--mu:#9a9fbd;--br:#2a2e4d;--ac:#818cf8;--ok:#4ade80;--er:#f87171}}
+:root[data-theme="dark"]{--bg:#0e1020;--card:#171a30;--tx:#eceefb;--mu:#9a9fbd;--br:#2a2e4d;--ac:#818cf8;--ok:#4ade80;--er:#f87171}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,sans-serif}
+.w{max-width:1000px;margin:0 auto;padding:16px}.card{background:var(--card);border:1px solid var(--br);border-radius:12px;padding:12px}
+.st{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:12px 0}.st b{display:block;font-size:20px}.st small{color:var(--mu)}
+button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:6px 12px;background:var(--ac);color:#fff;font-weight:600}
+button.g{background:transparent;color:var(--tx);border:1px solid var(--br)}button.r{background:var(--er)}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.tabs button.on{outline:2px solid var(--tx)}
+input{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--br);background:var(--bg);color:var(--tx);margin:4px 4px 4px 0}
+.t{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:8px;border-bottom:1px solid var(--br);white-space:nowrap}
+.tag{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--br)}
+</style></head><body><div class="w">
+<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Nomber OTP Admin</h2><a href="/" style="color:var(--ac)">Back to site</a></div>
+<div class="st" id="st"></div>
+<div class="tabs" id="tabs"></div>
+<div class="card" id="v">Loading...</div>
+</div>
+<script>
+var T="";try{T=localStorage.getItem("nt")||""}catch(e){}
+var $=function(i){return document.getElementById(i)},tab="topups";
+function esc(x){return String(x==null?"":x).replace(/[&<>"']/g,function(c){return "&#"+c.charCodeAt(0)+";"})} 
+async function api(p,b){var o={headers:{"Content-Type":"application/json",Authorization:"Bearer "+T}};if(b!==undefined){o.method="POST";o.body=JSON.stringify(b)}
+ var r=await fetch(p,o),j={};try{j=await r.json()}catch(e){}if(!r.ok)throw new Error(j.error||"Error "+r.status);return j}
+function fail(e){alert(e.message)}
+function tabs(){$("tabs").innerHTML=[["topups","Top-ups"],["users","Users"],["orders","Orders"],["settings","Settings"]].map(function(t){return '<button class="'+(tab===t[0]?"":"g ")+(tab===t[0]?"on":"")+' onclick="go(\''+t[0]+'\')">'+t[1]+'</button>'}).join("")}
+function go(t){tab=t;tabs();show()}
+async function stats(){try{var s=await api("/admin/summary");$("st").innerHTML=[["Users",s.users],["Wallet total","Rs "+s.walletTotal],["Pending top-ups",s.pendingTopups],["Orders (24h)",s.orders24h],["Revenue (24h)","Rs "+s.revenue24h]].map(function(x){return '<div class="card"><small>'+x[0]+'</small><b>'+x[1]+'</b></div>'}).join("")+<div class="card"><small>Supplier success</small>"+s.suppliers.map(function(p){return '<b>'+esc(p.name)+' '+p.successRate+'%</b>'}).join("")+"</div>"}catch(e){$("v").innerHTML="Admin login required. Log in on the main site with the admin email, then reopen this page.";throw e}}
+async function show(){
+ var v=$("v");
+ try{
+ if(tab==="topups"){var d=await api("/admin/topups?status=pending");
+  v.innerHTML='<p style="color:var(--mu)">Check each UTR and amount in your bank/merchant app before approving.</p><div class="t"><table><tr><th>Time</th><th>User</th><th>Amount</th><th>UTR</th><th></th></tr>'+(d.map(function(t){return '<tr><td>'+new Date(t.created).toLocaleString()+'</td><td>'+esc(t.email)+'</td><td>Rs '+t.amount+'</td><td>'+esc(t.utr)+'</td><td><button onclick="tp('+t.id+',\'approve\')" class="g">Approve</button> <button class="r" onclick="tp('+t.id+',\'reject\')" >Reject</button></td></tr>'}).join("")||'<tr><td colspan="5">No pending top-ups</td></tr>')+'</table></div>'}
+ if(tab==="users"){var d=await api("/admin/users?q="+encodeURIComponent($("uq")?$("uq").value:""));
+  v.innerHTML='<input id="uq" placeholder="Search email"><button class="g" onclick="show()">Search</button><div class="t"><table><tr><th>ID</th><th>Email</th><th>Balance</th><th>Actions</th></tr>'+d.map(function(u){return '<tr><td>'+u.id+'</td><td>'+esc(u.email)+(u.is_admin?' <span class="tag">admin</span>':'')+(u.banned?' <span class="tag">banned</span>':'')+' </td><td>Rs '+u.balance+'</td><td><button class="g" onclick="adj('+u.id+")">Add / remove balance</button> <button class="g" onclick="ban("+u.id+','+(u.banned?0:1)+")">"+(u.banned?'Unban':'Ban')+"</button></td></tr>"}).join("")+"</table></div>"}
+ if(tab==="orders"){var d=await api("/admin/orders");
+  v.innerHTML='<div class="t"><table><tr><th>Time</th><th>User</th><th>Service</th><th>Number</th><th>OTP</th><th>Status</th><th></th></tr>'+d.map(function(o){return '<tr><td>'+new Date(o.created).toLocaleString()+'</td><td>'+esc(o.email)+'</td><td>'+esc(o.service)+'</td><td>'+esc(o.number)+'</td><td>'+esc(o.otp||"-")+'</td><td><span class="tag">'+esc(o.status)+'</span></td><td>'+(o.status==="waiting"||o.status==="done"?'<button class="g" onclick="rf('+o.id+")">Refund</button>":'')+"</td></tr>"}).join("")+"</table></div>"}
+ if(tab==="settings"){var s=await api("/admin/settings");
+  v.innerHTML='<label>Price per order (Rs)<br><input id="sp" type="number" value="'+s.price+'"></label><br><label>Minimum top-up (Rs)<br><input id="sm" type="number" value="'+s.min_topup+'"></label><br><button onclick="sv()">Save</button>'}
+ }catch(e){v.textContent=e.message}
+}
+async function tp(id,a){try{await api("/admin/topups/"+id+"/"+a,{});stats();show()}catch(e){fail(e)}}
+async function adj(id){var d=prompt("Amount to add (use a minus sign to remove):");if(d===null)return;var n=prompt("Note (optional):")||"":try{await api("/admin/users/"+id+"/adjust",{delta:d,note:n});stats();show()}catch(e){fail(e)}}
+async function ban(id,b){if(!confirm(b?"Ban this user?":"Unban this user?"))return;try{await api("/admin/users/"+id+"/ban",{banned:!!b});show()}catch(e){fail(e)}}
+async function rf(id){if(!confirm("Refund this order to the user's wallet?"))return;try{await api("/admin/orders/"+id+"/refund",{});stats();show()}catch(e){fail(e)}}
+async function sv(){try{await api("/admin/settings",{price:$("sp").value,min_topup:$("sm").value});alert("Saved")}catch(e){fail(e)}}
+tabs();stats().then(show).catch(function(){});
+</script></body></html>

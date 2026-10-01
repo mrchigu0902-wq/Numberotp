@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: nomber-otp
+    env: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: admin@example.com
+      - key: NUMBEROTP_API_KEY
+        value: your_numberotp_api_key
+      - key: NUMBEROTP_COUNTRY
+        value: "101"
+      - key: UPI_ID
+        value: yourname@upi
+      - key: PORT
+        value: "3000"
