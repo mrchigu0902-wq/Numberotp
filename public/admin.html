@@ -13,6 +13,9 @@ button.g{background:transparent;color:var(--tx);border:1px solid var(--br)}butto
 input{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--br);background:var(--bg);color:var(--tx);margin:4px 4px 4px 0}
 .t{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:8px;border-bottom:1px solid var(--br);white-space:nowrap}
 .tag{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--br)}
+.qr-upload{border:2px dashed var(--br);border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:all 0.2s}
+.qr-upload:hover{border-color:var(--ac);background:var(--bg)}
+.qr-upload.drag{border-color:var(--ac);background:var(--bg)}
 </style></head><body><div class="w">
 <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Nomber OTP Admin</h2><a href="/" style="color:var(--ac)">Back to site</a></div>
 <div class="st" id="st"></div>
@@ -23,29 +26,36 @@ input{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--br);back
 var T="";try{T=localStorage.getItem("nt")||""}catch(e){}
 var $=function(i){return document.getElementById(i)},tab="topups";
 function esc(x){return String(x==null?"":x).replace(/[&<>"']/g,function(c){return "&#"+c.charCodeAt(0)+";"})} 
-async function api(p,b){var o={headers:{"Content-Type":"application/json",Authorization:"Bearer "+T}};if(b!==undefined){o.method="POST";o.body=JSON.stringify(b)}
+async function api(p,b,opts){var o=opts||{headers:{"Content-Type":opts?.skipContentType?undefined:"application/json",Authorization:"Bearer "+T}};if(b!==undefined){o.method="POST";if(!opts?.skipContentType)o.body=JSON.stringify(b)}else if(opts?.body){o.method="POST";o.body=opts.body}
  var r=await fetch(p,o),j={};try{j=await r.json()}catch(e){}if(!r.ok)throw new Error(j.error||"Error "+r.status);return j}
 function fail(e){alert(e.message)}
-function tabs(){$("tabs").innerHTML=[["topups","Top-ups"],["users","Users"],["orders","Orders"],["settings","Settings"]].map(function(t){return '<button class="'+(tab===t[0]?"":"g ")+(tab===t[0]?"on":"")+' onclick="go(\''+t[0]+'\')">'+t[1]+'</button>'}).join("")}
+function tabs(){$("tabs").innerHTML=[["topups","Top-ups"],["users","Users"],["orders","Orders"],["settings","Settings"],["qr","Upload QR"]].map(function(t){return '<button class="'+(tab===t[0]?"":"g ")+(tab===t[0]?"on":"")+' onclick="go(\''+t[0]+'\')">'+t[1]+'</button>'}).join("")}
 function go(t){tab=t;tabs();show()}
 async function stats(){try{var s=await api("/admin/summary");$("st").innerHTML=[["Users",s.users],["Wallet total","Rs "+s.walletTotal],["Pending top-ups",s.pendingTopups],["Orders (24h)",s.orders24h],["Revenue (24h)","Rs "+s.revenue24h]].map(function(x){return '<div class="card"><small>'+x[0]+'</small><b>'+x[1]+'</b></div>'}).join("")+<div class="card"><small>Supplier success</small>"+s.suppliers.map(function(p){return '<b>'+esc(p.name)+' '+p.successRate+'%</b>'}).join("")+"</div>"}catch(e){$("v").innerHTML="Admin login required. Log in on the main site with the admin email, then reopen this page.";throw e}}
 async function show(){
  var v=$("v");
  try{
  if(tab==="topups"){var d=await api("/admin/topups?status=pending");
-  v.innerHTML='<p style="color:var(--mu)">Check each UTR and amount in your bank/merchant app before approving.</p><div class="t"><table><tr><th>Time</th><th>User</th><th>Amount</th><th>UTR</th><th></th></tr>'+(d.map(function(t){return '<tr><td>'+new Date(t.created).toLocaleString()+'</td><td>'+esc(t.email)+'</td><td>Rs '+t.amount+'</td><td>'+esc(t.utr)+'</td><td><button onclick="tp('+t.id+',\'approve\')" class="g">Approve</button> <button class="r" onclick="tp('+t.id+',\'reject\')" >Reject</button></td></tr>'}).join("")||'<tr><td colspan="5">No pending top-ups</td></tr>')+'</table></div>'}
+  v.innerHTML='<p style="color:var(--mu)">Check each UTR and amount in your bank/merchant app before approving.</p><div class="t"><table><tr><th>Time</th><th>User</th><th>Amount</th><th>UTR</th><th></th></tr>'+(d.map(function(t){return '<tr><td>'+new Date(t.created).toLocaleString()+'</td><td>'+esc(t.email)+'</td><td>Rs '+t.amount+'</td><td>'+esc(t.utr)+'</td><td><button class="g" onclick="tp('+t.id+',\'approve\')" >Approve</button> <button class="r" onclick="tp('+t.id+',\'reject\')" >Reject</button></td></tr>'}).join("")||'<tr><td colspan="5">No pending top-ups</td></tr>')+'</table></div>'}
  if(tab==="users"){var d=await api("/admin/users?q="+encodeURIComponent($("uq")?$("uq").value:""));
-  v.innerHTML='<input id="uq" placeholder="Search email"><button class="g" onclick="show()">Search</button><div class="t"><table><tr><th>ID</th><th>Email</th><th>Balance</th><th>Actions</th></tr>'+d.map(function(u){return '<tr><td>'+u.id+'</td><td>'+esc(u.email)+(u.is_admin?' <span class="tag">admin</span>':'')+(u.banned?' <span class="tag">banned</span>':'')+' </td><td>Rs '+u.balance+'</td><td><button class="g" onclick="adj('+u.id+")">Add / remove balance</button> <button class="g" onclick="ban("+u.id+','+(u.banned?0:1)+")">"+(u.banned?'Unban':'Ban')+"</button></td></tr>"}).join("")+"</table></div>"}
+  v.innerHTML='<input id="uq" placeholder="Search email"><button class="g" onclick="show()">Search</button><div class="t"><table><tr><th>ID</th><th>Email</th><th>Balance</th><th>Actions</th></tr>'+d.map(function(u){return '<tr><td>'+u.id+'</td><td>'+esc(u.email)+(u.is_admin?' <span class="tag">admin</span>':'')+(u.banned?' <span class="tag">banned</span>':'')+' </td><td>Rs '+u.balance+'</td><td><button class="g" onclick="adj('+u.id+")">Adjust</button> <button class="g" onclick="ban("+u.id+','+(u.banned?0:1)+")">"+(u.banned?'Unban':'Ban')+"</button></td></tr>"}).join("")+"</table></div>"}
  if(tab==="orders"){var d=await api("/admin/orders");
   v.innerHTML='<div class="t"><table><tr><th>Time</th><th>User</th><th>Service</th><th>Number</th><th>OTP</th><th>Status</th><th></th></tr>'+d.map(function(o){return '<tr><td>'+new Date(o.created).toLocaleString()+'</td><td>'+esc(o.email)+'</td><td>'+esc(o.service)+'</td><td>'+esc(o.number)+'</td><td>'+esc(o.otp||"-")+'</td><td><span class="tag">'+esc(o.status)+'</span></td><td>'+(o.status==="waiting"||o.status==="done"?'<button class="g" onclick="rf('+o.id+")">Refund</button>":'')+"</td></tr>"}).join("")+"</table></div>"}
  if(tab==="settings"){var s=await api("/admin/settings");
   v.innerHTML='<label>Price per order (Rs)<br><input id="sp" type="number" value="'+s.price+'"></label><br><label>Minimum top-up (Rs)<br><input id="sm" type="number" value="'+s.min_topup+'"></label><br><button onclick="sv()">Save</button>'}
+ if(tab==="qr"){v.innerHTML='<div class="card"><p>Upload a UPI QR code image (PNG, JPG). Users will see it under "Add money".</p><div class="qr-upload" id="qrzone" ondrop="qrdrop(event)" ondragover="qrdrag(event)">Click to select or drag QR image here</div><input id="qri" type="file" accept="image/*" style="display:none" onchange="qrpick()"><p id="qrstatus" style="color:var(--mu);font-size:12px"></p><img id="qrprev" style="width:200px;max-width:100%;border-radius:8px;margin-top:12px" src="qr.png" onerror="this.style.display=\'none\'" onload="this.style.display=\'block\'"></div>';
+  $("qrzone").onclick=function(){$("qri").click()}}
  }catch(e){v.textContent=e.message}
 }
 async function tp(id,a){try{await api("/admin/topups/"+id+"/"+a,{});stats();show()}catch(e){fail(e)}}
-async function adj(id){var d=prompt("Amount to add (use a minus sign to remove):");if(d===null)return;var n=prompt("Note (optional):")||"":try{await api("/admin/users/"+id+"/adjust",{delta:d,note:n});stats();show()}catch(e){fail(e)}}
+async function adj(id){var d=prompt("Amount to add (use minus to remove):");if(d===null)return;var n=prompt("Note (optional):")||"";try{await api("/admin/users/"+id+"/adjust",{delta:d,note:n});stats();show()}catch(e){fail(e)}}
 async function ban(id,b){if(!confirm(b?"Ban this user?":"Unban this user?"))return;try{await api("/admin/users/"+id+"/ban",{banned:!!b});show()}catch(e){fail(e)}}
 async function rf(id){if(!confirm("Refund this order to the user's wallet?"))return;try{await api("/admin/orders/"+id+"/refund",{});stats();show()}catch(e){fail(e)}}
 async function sv(){try{await api("/admin/settings",{price:$("sp").value,min_topup:$("sm").value});alert("Saved")}catch(e){fail(e)}}
+function qrdrag(e){e.preventDefault();$("qrzone").classList.add("drag")}
+function qrdrop(e){e.preventDefault();$("qrzone").classList.remove("drag");var f=e.dataTransfer.files[0];if(f)upqr(f)}
+function qrpick(){var f=$("qri").files[0];if(f)upqr(f)}
+async function upqr(f){if(!f.type.startsWith("image/")){alert("Please select an image file");return}
+var r=new FileReader();r.onload=async function(e){try{await api("/admin/qr/upload",null,{body:e.target.result,skipContentType:true});$("qrstatus").textContent="QR uploaded successfully!";$("qrstatus").style.color="var(--ok)";$("qrprev").src="qr.png?"+Date.now();setTimeout(function(){$("qrstatus").textContent=""},3000)}catch(err){fail(err)}};r.readAsArrayBuffer(f)}
 tabs();stats().then(show).catch(function(){});
 </script></body></html>
